@@ -1,17 +1,20 @@
+import os 
 import imufusion
 import numpy as np
 import matplotlib.pyplot as plt
+from colour import Color
 from matplotlib import animation
 from dataclasses import dataclass
 from scipy.interpolate import interp1d
 
 class AccPath:
 
-    def __init__(self, gyroscope, accelerometer, timestamp, sample_rate):
+    def __init__(self, gyroscope, accelerometer, timestamp, sample_rate, saving_path=""):
         self.gyroscope = gyroscope
         self.accelerometer = accelerometer
         self.timestamp = timestamp
         self.sample_rate = sample_rate
+        self.path = saving_path
 
         self.instantiate_ahrs_algorithm()
         self.process_sensor_data()
@@ -20,6 +23,33 @@ class AccPath:
         self.find_start_stop_of_moving_period()
         self.remove_integral_drift_from_velocity()
         self.calculate_position()
+        self.check_saving_path()
+
+    
+    def plot_path(self, title="", c1="green", c2="blue"):
+        section_width = 10
+        n_sections = int(len(self.timestamp)/section_width)
+        colors = list(Color(c1).range_to(Color(c2), n_sections))
+        plt.figure(figsize=(10, 10))
+        ax = plt.axes(projection ='3d')
+        x = self.position[:,0]
+        y = self.position[:,1]
+        z = self.position[:,2]
+        for i in range(n_sections):
+            i_start = i*section_width
+            i_end = i_start+section_width
+            ax.plot3D(x[i_start:i_end], y[i_start:i_end], z[i_start:i_end], color=colors[i].hex)
+        ax.scatter3D(x[0], y[0], z[0], s=50, color=c1, label="Start")
+        ax.scatter3D(x[-1], y[-1], z[-1], s=50, color=c2, label="End")
+        if title:
+            ax.set_title(title)
+        ax.set_xlabel("m")
+        ax.set_ylabel("m")
+        ax.set_zlabel("m")
+        plt.legend()
+        plt.savefig(self.path+"path.png")
+        plt.show()
+        plt.close()
     
 
     def plot_sensor_data(self):
@@ -39,6 +69,7 @@ class AccPath:
         plt.xlabel("t [s]")
         plt.legend()
         plt.tight_layout()
+        plt.savefig(self.path+"sensor_data.png")
         plt.show()
         plt.close()
 
@@ -52,6 +83,7 @@ class AccPath:
         plt.ylabel("Degrees")
         plt.grid()
         plt.legend()
+        plt.savefig(self.path+"euler_angles.png")
         plt.show()
         plt.close()
 
@@ -73,6 +105,7 @@ class AccPath:
         axes[2].set_xlabel("t [s]")
         axes[2].grid()
         plt.tight_layout()
+        plt.savefig(self.path+"internal_states.png")
         plt.show()
         plt.close()
 
@@ -108,6 +141,7 @@ class AccPath:
         axes[3].set_ylabel("m")
         axes[3].grid()
         plt.tight_layout()
+        plt.savefig(self.path+"acceleration_velocity_position.png")
         plt.show()
         plt.close()
     
@@ -153,7 +187,7 @@ class AccPath:
                                     frames=int(len(self.timestamp) / samples_per_frame),
                                     interval=1000 / fps,
                                     repeat=False)
-        anim.save("animation.gif", writer=animation.PillowWriter(fps))
+        anim.save(self.path+"animation.gif", writer=animation.PillowWriter(fps))
         plt.show()
 
 
@@ -269,3 +303,9 @@ class AccPath:
         self.position = np.zeros((len(self.timestamp), 3))
         for index in range(len(self.timestamp)):
             self.position[index] = self.position[index - 1] + self.delta_time[index] * self.velocity[index]
+
+
+    def check_saving_path(self):
+        if self.path:
+            if not os.path.exists(self.path): 
+                os.makedirs(self.path)
