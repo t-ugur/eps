@@ -26,9 +26,8 @@ class AccPath:
         self.check_saving_path()
 
     
-    def plot_path(self, title="", c1="green", c2="blue"):
-        section_width = 10
-        n_sections = int(len(self.timestamp)/section_width)
+    def plot_path(self, title="", n_sections=10, c1="green", c2="blue"):
+        section_width = int(len(self.timestamp)/n_sections)
         colors = list(Color(c1).range_to(Color(c2), n_sections))
         plt.figure(figsize=(10, 10))
         ax = plt.axes(projection ='3d')
@@ -48,6 +47,42 @@ class AccPath:
         ax.set_zlabel("m")
         plt.legend()
         plt.savefig(self.path+"path.png")
+        plt.show()
+        plt.close()
+    
+
+    def animate_path(self, length_sec=15, fps=4, c1="green", c2="blue"):
+        samples_per_frame = int(len(self.timestamp)/length_sec/fps)
+        n_frames = int(length_sec * fps)
+        colors = list(Color(c1).range_to(Color(c2), n_frames))
+        figure = plt.figure(figsize=(10, 10))
+        ax = plt.axes(projection="3d")
+        x = self.position[:,0]
+        y = self.position[:,1]
+        z = self.position[:,2]
+        ax.scatter3D(x[0], y[0], z[0], s=50, color=c1, label="Start")
+        def update(frame):
+            i_start = frame*samples_per_frame
+            i_end = i_start+samples_per_frame
+            ax.plot3D(x[i_start:i_end], y[i_start:i_end], z[i_start:i_end], color=colors[frame].hex)
+            if i_end<6000:
+                title=str(round(i_end/100,2))+" s"
+            elif i_end<360000:
+                title=str(round(i_end/6000,2))+" min"
+            else: 
+                title=str(round(i_end/360000,2))+" h"
+            ax.set_title(title)
+            if frame==n_frames-1:
+                ax.scatter3D(x[-1], y[-1], z[-1], s=50, color=c2, label="End") 
+        anim = animation.FuncAnimation(figure, update,
+                                frames=n_frames,
+                                interval=1000/fps,
+                                repeat=False)
+        ax.set_xlabel("m")
+        ax.set_ylabel("m")
+        ax.set_zlabel("m")
+        plt.legend()
+        anim.save(self.path+"animation.gif", writer=animation.PillowWriter(fps))
         plt.show()
         plt.close()
     
@@ -109,6 +144,7 @@ class AccPath:
         plt.show()
         plt.close()
 
+
     def plot_acceleration_velocity_position(self):
         figure, axes = plt.subplots(nrows=4, sharex=True)
         # Plot acceleration
@@ -149,46 +185,6 @@ class AccPath:
     def print_distance_start_final(self):
         # Print distance between start and final positions
         print("Start-Final-Distance: " + "{:.3f}".format(np.sqrt(self.position[-1].dot(self.position[-1]))) + " m")
-
-
-    def create_path_animation(self):
-        # Create 3D animation
-        # takes a long time
-        figure = plt.figure(figsize=(10, 10))
-        axes = plt.axes(projection="3d")
-        axes.set_xlabel("m")
-        axes.set_ylabel("m")
-        axes.set_zlabel("m")
-
-        x = []
-        y = []
-        z = []
-        scatter = axes.scatter(x, y, z)
-
-        fps = 30
-        samples_per_frame = int(self.sample_rate / fps)
-
-        def update(frame):
-            index = frame * samples_per_frame
-            axes.set_title("{:.3f}".format(self.timestamp[index]) + " s")
-            x.append(self.position[index, 0])
-            y.append(self.position[index, 1])
-            z.append(self.position[index, 2])
-            scatter._offsets3d = (x, y, z)
-
-            if (min(x) != max(x)) and (min(y) != max(y)) and (min(z) != max(z)):
-                axes.set_xlim3d(min(x), max(x))
-                axes.set_ylim3d(min(y), max(y))
-                axes.set_zlim3d(min(z), max(z))
-                axes.set_box_aspect((np.ptp(x), np.ptp(y), np.ptp(z)))
-            return scatter
-
-        anim = animation.FuncAnimation(figure, update,
-                                    frames=int(len(self.timestamp) / samples_per_frame),
-                                    interval=1000 / fps,
-                                    repeat=False)
-        anim.save(self.path+"animation.gif", writer=animation.PillowWriter(fps))
-        plt.show()
 
 
     def instantiate_ahrs_algorithm(self):

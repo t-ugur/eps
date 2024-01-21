@@ -1,5 +1,6 @@
 data/*.dat
 data/*h.csv
+data/*day*.csv
 data/*complete.csv
 
 __pycache__
